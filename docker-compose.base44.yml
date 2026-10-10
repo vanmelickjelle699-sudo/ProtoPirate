@@ -1,0 +1,42 @@
+# Base44 sandbox dev environment for ProtoPirate.
+#
+# ProtoPirate is a Flipper Zero firmware application (.fap), not a web service:
+# it has no HTTP server and no browser UI. This compose stack therefore does the
+# only meaningful "run" for this project — it compiles the app with `ufbt` — and
+# additionally serves a small build report on host port 3000 so the Base44
+# preview has an HTTP surface and the built .fap can be downloaded.
+#
+# Usage:  docker compose -f docker-compose.base44.yml up -d --build
+# See AGENTS.md for details.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.base44
+    working_dir: /project
+    # Build report server; it compiles the app with ufbt on startup.
+    command: ["python3", "tools/base44_preview.py"]
+    environment:
+      # Keep the self-managed SDK/toolchain cache on the (git-ignored) bind mount
+      # so it survives restarts instead of being re-downloaded.
+      - UFBT_HOME=/project/.ufbt
+      - PORT=3000
+      # Platform-provided; passed through untouched (the app itself does not read it).
+      - BASE44_PREVIEW_MODE
+    volumes:
+      # Live source: ufbt reads the repo directly, so edits are picked up on rebuild.
+      - ./:/project
+    ports:
+      - "3000:3000"
+    restart: on-failure
+    healthcheck:
+      # The service is the HTTP build-report server; probe it for real.
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import urllib.request,sys;
+          sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:3000/', timeout=4).status==200 else 1)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

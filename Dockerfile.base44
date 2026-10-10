@@ -1,0 +1,17 @@
+# Base44 sandbox toolchain image for ProtoPirate (Flipper Zero .fap build).
+#
+# This image contains ONLY the build/preview toolchain (Python + ufbt). The
+# application source is bind-mounted at runtime (`./:/project`), so source edits
+# never require rebuilding this image. It deliberately does NOT COPY the repo in:
+# baking the sources would freeze the code and break the edit loop.
+FROM python:3.11-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# ufbt manages the Flipper SDK itself; it downloads the SDK + ARM toolchain on
+# first run into $UFBT_HOME (wired to the git-ignored /project/.ufbt).
+RUN python -m pip install --no-cache-dir --upgrade pip ufbt
+
+WORKDIR /project
